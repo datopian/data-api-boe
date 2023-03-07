@@ -97,7 +97,7 @@ router.get(`/${APP_VERSION}/datastore_search`, async function (req, res, next) {
     const ckan_token = req.query.token
     const resourceReq = await fetch(`${process.env.CKAN_URL}/api/action/resource_show?id=${table}`, { headers: { 'Authorization' : ckan_token }})
     const resource = await resourceReq.json()
-    if (resource.success === false) {
+    if (resource && resource.error && resource.error.__type === "Authorization Error") {
       res
         .status(403)
         .send(

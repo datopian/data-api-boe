@@ -30,7 +30,7 @@ app.use(
       const ckan_token = userReq.query.token
       const resourceReq = await fetch(`${process.env.CKAN_URL}/api/action/resource_show?id=${resource_id}`, { headers: { 'Authorization' : ckan_token }})
       const resource = await resourceReq.json()
-      if (resource.success === false) {
+      if (resource && resource.error && resource.error.__type === "Authorization Error") {
         userRes.status(403)
       }
       return proxyResData;
