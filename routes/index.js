@@ -9,6 +9,8 @@ const { queryForData } = require('./queryGraphQL')
 const XLSX = require('xlsx')
 const path = require('path')
 
+const fetch = require('node-fetch')
+
 const APP_VERSION = 'v1'
 
 /* Gets the schema from a GraphQL*/
@@ -92,6 +94,18 @@ router.get(`/${APP_VERSION}/datastore_search`, async function (req, res, next) {
       return res.redirect(303, `/${APP_VERSION}/datastore_search/help`)
     }
     const table = req.query.resource_id
+    const ckan_token = req.query.token
+    const resourceReq = await fetch(`${process.env.CKAN_URL}/api/action/resource_show?id=${table}`, { headers: { 'Authorization' : ckan_token }})
+    const resource = await resourceReq.json()
+    if (resource.success === false) {
+      res
+        .status(403)
+        .send(
+          resource.error.message + ' And you havent provided enough credentials to see it before publishing'
+        )
+        .end()
+      return
+    }
     // query for schema  -> this should be already in Frictionless format
     // const schema = await queryForSchema()
     const schema = await getGraphQLTableSchema(table)

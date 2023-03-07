@@ -9,6 +9,7 @@ var proxy = require('express-http-proxy')
 const url = require('url')
 
 var indexRouter = require('./routes/index')
+const fetch = require('node-fetch')
 
 var app = express()
 app.use(cors())
@@ -24,6 +25,16 @@ app.use(
   '/v1/graphql',
   proxy(process.env.HASURA_URL, {
     proxyReqPathResolver: (req) => url.parse(req.baseUrl).path,
+    userResDecorator: async function(proxyRes, proxyResData, userReq, userRes) {
+      const resource_id = userReq.query.resource_id
+      const ckan_token = userReq.query.token
+      const resourceReq = await fetch(`${process.env.CKAN_URL}/api/action/resource_show?id=${resource_id}`, { headers: { 'Authorization' : ckan_token }})
+      const resource = await resourceReq.json()
+      if (resource.success === false) {
+        userRes.status(403)
+      }
+      return proxyResData;
+    }
   })
 )
 
