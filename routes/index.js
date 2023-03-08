@@ -39,7 +39,6 @@ async function getGraphQLTableSchema(resource_id) {
   )
   try {
     const schemaPrep = await graphQLClient.request(queryForSchema)
-    //    console.log(JSON.stringify(schemaPrep, null, 2))  // TODO erase log
     schema = schemaPrep.__type
   } catch (e) {
     console.error(e)
@@ -109,9 +108,6 @@ router.get(`/${APP_VERSION}/datastore_search`, async function (req, res, next) {
     // query for schema  -> this should be already in Frictionless format
     // const schema = await queryForSchema()
     const schema = await getGraphQLTableSchema(table)
-    console.log(schema)
-    const data = await queryForData(schema, req.query)
-    console.log(data.errors)
     /*TODO*/
     /* Auth handling  ... maybe JWT? */
     // Mandatory GET parameters check
@@ -119,7 +115,6 @@ router.get(`/${APP_VERSION}/datastore_search`, async function (req, res, next) {
     // response
     res.send({
       schema: beautifyGQLSchema(schema),
-      data,
     })
   } catch (e) {
     console.error(e)
