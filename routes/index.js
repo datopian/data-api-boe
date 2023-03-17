@@ -94,13 +94,21 @@ router.get(`/${APP_VERSION}/datastore_search`, async function (req, res, next) {
     }
     const table = req.query.resource_id
     const ckan_token = req.query.token
-    const resourceReq = await fetch(`${process.env.CKAN_URL}/api/action/resource_show_by_name?id=${table}`, { headers: { 'Authorization' : ckan_token }})
+    const resourceReq = await fetch(
+      `${process.env.CKAN_URL}/api/action/resource_show_by_name?id=${table}`,
+      { headers: { Authorization: ckan_token } }
+    )
     const resource = await resourceReq.json()
-    if (resource && resource.error && resource.error.__type === "Authorization Error") {
+    if (
+      resource &&
+      resource.error &&
+      resource.error.__type === 'Authorization Error'
+    ) {
       res
         .status(403)
         .send(
-          resource.error.message + ' And you havent provided enough credentials to see it before publishing'
+          resource.error.message +
+            ' And you havent provided enough credentials to see it before publishing'
         )
         .end()
       return
@@ -160,7 +168,41 @@ router.post(`/${APP_VERSION}/download`, async function (req, res, next) {
       'attachment; filename="download.' + ext + '";'
     )
     // TODO check graphql syntax BEFORE sending it
-    const gqlRes = await request(`${process.env.HASURA_URL}/v1/graphql`, query)
+    let gqlRes = await request(`${process.env.HASURA_URL}/v1/graphql`, query)
+    const resources = await Promise.all(
+      Object.keys(gqlRes)[0]
+        .split('__')
+        .map(async (resourceName) => {
+          const resourceReq = await fetch(
+            `${process.env.CKAN_URL}/api/action/resource_show_by_name?id=${resourceName}`
+          )
+          const resource = await resourceReq.json()
+          return resource.result
+        })
+    )
+    const footnotes = resources.map(resource => resource.footnotes).flat()
+    const objectKeys = Object.keys(gqlRes[Object.keys(gqlRes)[0]][0])
+    const keysChanges = objectKeys.map((key) => {
+      const columnDescription = resources.find(
+        (resource) => resource.name.toUpperCase() === key.toUpperCase()
+      )?.description
+      return {
+        old: key,
+        new: columnDescription ? `${columnDescription} - ${key}` : key,
+      }
+    })
+    gqlRes[Object.keys(gqlRes)[0]] = gqlRes[Object.keys(gqlRes)[0]].map((item) => {
+      const newItem = {}
+      Object.entries(item).forEach(([key, value]) => {
+        const newAndOld = keysChanges.find(item => item.old === key)
+        const footnote = footnotes.find(footnote => footnote.row === item['Date'] && footnote.column.toUpperCase() === key)
+        newItem[newAndOld.new] = value
+        if (key !== 'Date') {
+          newItem[`${key} - Footnote`] = footnote ? footnote.footnote : ''
+        }
+      })
+      return newItem
+    })
 
     // // capture graphql response
     if (ext != 'json') {

@@ -25,16 +25,28 @@ app.use(
   '/v1/graphql',
   proxy(process.env.HASURA_URL, {
     proxyReqPathResolver: (req) => url.parse(req.baseUrl).path,
-    userResDecorator: async function(proxyRes, proxyResData, userReq, userRes) {
+    userResDecorator: async function (
+      proxyRes,
+      proxyResData,
+      userReq,
+      userRes
+    ) {
       const resource_id = userReq.query.resource_id
       const ckan_token = userReq.query.token
-      const resourceReq = await fetch(`${process.env.CKAN_URL}/api/action/resource_show_by_name?id=${resource_id}`, { headers: { 'Authorization' : ckan_token }})
+      const resourceReq = await fetch(
+        `${process.env.CKAN_URL}/api/action/resource_show_by_name?id=${resource_id}`,
+        { headers: { Authorization: ckan_token } }
+      )
       const resource = await resourceReq.json()
-      if (resource && resource.error && resource.error.__type === "Authorization Error") {
+      if (
+        resource &&
+        resource.error &&
+        resource.error.__type === 'Authorization Error'
+      ) {
         userRes.status(403)
       }
-      return proxyResData;
-    }
+      return proxyResData
+    },
   })
 )
 
