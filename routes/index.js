@@ -180,7 +180,7 @@ router.post(`/${APP_VERSION}/download`, async function (req, res, next) {
           return resource.result
         })
     )
-    const footnotes = resources.map(resource => resource.footnotes).flat()
+    const footnotes = resources.map((resource) => resource.footnotes).flat()
     const objectKeys = Object.keys(gqlRes[Object.keys(gqlRes)[0]][0])
     const keysChanges = objectKeys.map((key) => {
       const columnDescription = resources.find(
@@ -191,18 +191,24 @@ router.post(`/${APP_VERSION}/download`, async function (req, res, next) {
         new: columnDescription ? `${columnDescription} - ${key}` : key,
       }
     })
-    gqlRes[Object.keys(gqlRes)[0]] = gqlRes[Object.keys(gqlRes)[0]].map((item) => {
-      const newItem = {}
-      Object.entries(item).forEach(([key, value]) => {
-        const newAndOld = keysChanges.find(item => item.old === key)
-        const footnote = footnotes.find(footnote => footnote.row === item['Date'] && footnote.column.toUpperCase() === key)
-        newItem[newAndOld.new] = value
-        if (key !== 'Date') {
-          newItem[`${key} - Footnote`] = footnote ? footnote.footnote : ''
-        }
-      })
-      return newItem
-    })
+    gqlRes[Object.keys(gqlRes)[0]] = gqlRes[Object.keys(gqlRes)[0]].map(
+      (item) => {
+        const newItem = {}
+        Object.entries(item).forEach(([key, value]) => {
+          const newAndOld = keysChanges.find((item) => item.old === key)
+          const footnote = footnotes.find(
+            (footnote) =>
+              footnote.row + 'T00:00:00' === item['Date'] &&
+              footnote.column.toUpperCase() === key
+          )
+          newItem[newAndOld.new] = value
+          if (key !== 'Date') {
+            newItem[`${key} - Footnote`] = footnote ? footnote.footnote : ''
+          }
+        })
+        return newItem
+      }
+    )
 
     // // capture graphql response
     if (ext != 'json') {
