@@ -167,48 +167,61 @@ router.post(`/${APP_VERSION}/download`, async function (req, res, next) {
       'Content-Disposition',
       'attachment; filename="download.' + ext + '";'
     )
+    const includeFootnotes =
+      req.query.footnotes && req.query.footnotes === 'true'
     // TODO check graphql syntax BEFORE sending it
     let gqlRes = await request(`${process.env.HASURA_URL}/v1/graphql`, query)
-    const resources = await Promise.all(
-      Object.keys(gqlRes)[0]
-        .split('__')
-        .map(async (resourceName) => {
-          const resourceReq = await fetch(
-            `${process.env.CKAN_URL}/api/action/resource_show_by_name?id=${resourceName}`
-          )
-          const resource = await resourceReq.json()
-          return resource.result
-        })
-    )
-    const footnotes = resources.map((resource) => resource.footnotes).flat()
-    const objectKeys = Object.keys(gqlRes[Object.keys(gqlRes)[0]][0])
-    const keysChanges = objectKeys.map((key) => {
-      const columnDescription = resources.find(
-        (resource) => resource.name.toUpperCase() === key.toUpperCase()
-      )?.description
-      return {
-        old: key,
-        new: columnDescription ? `${columnDescription} - ${key}` : key,
-      }
-    })
-    gqlRes[Object.keys(gqlRes)[0]] = gqlRes[Object.keys(gqlRes)[0]].map(
-      (item) => {
-        const newItem = {}
-        Object.entries(item).forEach(([key, value]) => {
-          const newAndOld = keysChanges.find((item) => item.old === key)
-          const footnote = footnotes.find(
-            (footnote) =>
-              footnote.row + 'T00:00:00' === item['Date'] &&
-              footnote.column.toUpperCase() === key
-          )
-          newItem[newAndOld.new] = value
-          if (key !== 'Date') {
-            newItem[`${key} - Footnote`] = footnote ? footnote.footnote : ''
-          }
-        })
-        return newItem
-      }
-    )
+    if (includeFootnotes) {
+      const resources = await Promise.all(
+        Object.keys(gqlRes)[0]
+          .split('__')
+          .map(async (resourceName) => {
+            const resourceReq = await fetch(
+              `${process.env.CKAN_URL}/api/action/resource_show_by_name?id=${resourceName}`
+            )
+            const resource = await resourceReq.json()
+            return resource.result
+          })
+      )
+      const footnotes = resources.map((resource) => resource.footnotes).flat()
+      const objectKeys = Object.keys(gqlRes[Object.keys(gqlRes)[0]][0])
+      const keysChanges = objectKeys.map((key) => {
+        const columnDescription = resources.find(
+          (resource) => resource.name.toUpperCase() === key.toUpperCase()
+        )?.description
+        return {
+          old: key,
+          new: columnDescription ? `${columnDescription} - ${key}` : key,
+        }
+      })
+      gqlRes[Object.keys(gqlRes)[0]] = gqlRes[Object.keys(gqlRes)[0]].map(
+        (item) => {
+          const newItem = {}
+          Object.entries(item).forEach(([key, value]) => {
+            const newAndOld = keysChanges.find((item) => item.old === key)
+            const footnote = footnotes.find(
+              (footnote) =>
+                footnote.row + 'T00:00:00' === item['Date'] &&
+                footnote.column.toUpperCase() === key
+            )
+            newItem[newAndOld.new] = value
+            const columnFootnotes = footnotes.filter(
+              (footnote) =>
+                footnote.column.toUpperCase() === key && footnote.row === ''
+            )
+            if (columnFootnotes.length > 0) {
+              newItem[`${key} - Column Footnotes`] = columnFootnotes
+                .map((footnote) => footnote.footnote)
+                .join(', ')
+            }
+            if (key !== 'Date') {
+              newItem[`${key} - Footnote`] = footnote ? footnote.footnote : ''
+            }
+          })
+          return newItem
+        }
+      )
+    }
 
     // // capture graphql response
     if (ext != 'json') {
